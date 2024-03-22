@@ -49,6 +49,40 @@ final_df = pd.merge(final_df, total_market_cap_by_year, on='year', how='left', s
 
 final_df['tech_market_share'] = (final_df['tech_market_cap'] / final_df['market_cap']) * 100
 
+# Load the controls data
+controls_df = pd.read_csv('unprocessed/controls.csv')
+controls_df = controls_df.dropna(subset=['Country Name']).replace("..", pd.NA).dropna(subset=['Series Name'])
+years_columns = [f"{year} [YR{year}]" for year in range(1980, 2010)]  # Considering years up to 2009 as per the user's datasets
+melted_controls_df = controls_df.melt(id_vars=["Country Name", "Country Code", "Series Name", "Series Code"],
+                                      value_vars=years_columns, var_name="year", value_name="value")
+
+# Dropping unnecessary rows/columns and dealing with NaN values
+melted_controls_df = melted_controls_df.dropna(subset=["Series Name", "value"])
+
+# Extracting the year from the 'year' column
+melted_controls_df['year'] = pd.to_numeric(melted_controls_df['year'].apply(lambda x: x.split(' ')[0]))
+
+# Pivot the table to get years as rows and different series as columns
+pivot_controls_df = melted_controls_df.pivot_table(index="year", columns="Series Name", values="value", aggfunc='first').reset_index()
+
+# Rename columns for clarity
+pivot_controls_df.columns.name = None  # Remove the hierarchy
+pivot_controls_df.rename(columns={
+    'Income share held by highest 10%': 'income_share_top_10',
+    'Inflation, consumer prices (annual %)': 'inflation',
+    'Foreign direct investment, net inflows (% of GDP)': 'fdi_in',
+    'Foreign direct investment, net outflows (% of GDP)': 'fdi_out',
+    'Unemployment, total (% of total labor force) (national estimate)': 'unemployment'
+}, inplace=True)
+# Merge the controls data with the final DataFrame on the 'year' column
+final_df = pd.merge(final_df, pivot_controls_df, on='year', how='left')
+
+controls2_df = pd.read_csv('unprocessed/controls2.csv')
+final_df = pd.merge(final_df, controls2_df, on='year', how='left')
+
+income_shares_df = pd.read_csv('unprocessed/income.csv')
+final_df = pd.merge(final_df, income_shares_df, on='year', how='left')
+
 # Drop unnecessary columns
 final_df.drop(['Country Name', 'Country Code', 'Series Name', 'Series Code', 'market_cap'], axis=1, inplace=True)
 
